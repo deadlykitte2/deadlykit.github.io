@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>iCode WG Tool V1.1</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background-color: #222; 
+      color: #eee; 
+      margin: 0;
+      padding: 10px; 
+    }
+
+    h1 {
+      color: #007bff; 
+      font-size: 24px;
+    }
+
+    #container {
+      background-color: #333; 
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      width: 90%; 
+      max-width: 400px; 
+    }
+
+    #decoded-text {
+      margin-top: 15px;
+      padding: 10px;
+      border: 1px solid #555; 
+      border-radius: 4px;
+      min-height: 40px;
+      width: calc(100% - 20px); 
+      font-family: monospace;
+      white-space: pre-wrap; 
+      font-size: 14px; 
+      overflow-x: auto; 
+      color: #eee; 
+      background-color: #444;
+    }
+
+    button {
+      background-color: #007bff;
+      border: none;
+      color: white;
+      padding: 10px 15px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 5px;
+      width: 100%; 
+      box-sizing: border-box; 
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px); 
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); 
+    }
+
+    #filename-input {
+      margin-top: 10px; 
+      padding: 8px;
+      border: 1px solid #555;
+      border-radius: 4px;
+      width: calc(100% - 20px);
+      color: #eee;
+      background-color: #444; 
+    }
+
+    #timer {
+      margin-top: 10px; 
+      font-size: 14px;
+    }
+
+    button:disabled {
+      opacity: 0.5; 
+      cursor: default; 
+      pointer-events: none; 
+    }
+
+    /* New Telegram Contact Button Styles */
+    #telegram-contact {
+      margin-top: 15px;
+      position: relative;
+    }
+
+    #telegram-link {
+      display: inline-block;
+      background-color: #0088cc;
+      color: white;
+      padding: 10px 15px;
+      text-decoration: none;
+      border-radius: 5px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    #telegram-link::before {
+      content: '📞 Contact on Telegram';
+      animation: blink 1.5s infinite;
+    }
+
+    #telegram-link:hover {
+      background-color: #00a2db;
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <h1>iCode WG Tool V1.1</h1> 
+
+    <input type="file" id="qr-input" accept="image/*" />
+    <button id="decode-btn">Decode</button>
+
+    <h2>Decoded Text:</h2>
+    <div id="decoded-text"></div>
+
+    <input type="text" id="filename-input" placeholder="Enter Customer's name" /> 
+    <button id="download-btn" disabled>Download conf</button> 
+    <div id="timer"></div> 
+
+    <!-- New Telegram Contact Section -->
+    <div id="telegram-contact">
+      <a id="telegram-link" href="https://t.me/cybertechug" target="_blank"></a>
+    </div>
+  </div>
+
+  <script>
+    // Previous JavaScript remains unchanged
+    const qrInput = document.getElementById('qr-input');
+    const decodeBtn = document.getElementById('decode-btn');
+    const downloadBtn = document.getElementById('download-btn'); 
+    const decodedTextDiv = document.getElementById('decoded-text');
+    const filenameInput = document.getElementById('filename-input'); 
+    const timerDiv = document.getElementById('timer'); 
+
+    let downloadTimer; 
+
+    function saveTimerState(seconds) {
+      const timerData = {
+        remainingSeconds: seconds,
+        startTime: Date.now(), 
+      };
+      localStorage.setItem('downloadTimer', JSON.stringify(timerData));
+    }
+
+    function getTimerState() {
+      const timerData = localStorage.getItem('downloadTimer');
+      return timerData ? JSON.parse(timerData) : null;
+    }
+
+    const savedTimer = getTimerState();
+    if (savedTimer) {
+      const elapsedSeconds = Math.floor((Date.now() - savedTimer.startTime) / 1000);
+      const remainingSeconds = Math.max(0, savedTimer.remainingSeconds - elapsedSeconds);
+
+      if (remainingSeconds > 0) {
+        downloadBtn.disabled = true;
+        qrInput.disabled = true;
+        decodeBtn.disabled = true;
+        startTimer(remainingSeconds);
+      }
+    }
+
+    decodeBtn.addEventListener('click', () => {
+      if (qrInput.files.length > 0) {
+        const qrCodeData = qrInput.files[0];
+
+        const formData = new FormData();
+        formData.append('file', qrCodeData);
+
+        fetch('https://api.qrserver.com/v1/read-qr-code/', {
+            method: 'POST',
+            body: formData
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data && data[0] && data[0].symbol && data[0].symbol[0] && data[0].symbol[0].data) {
+              decodedTextDiv.textContent = data[0].symbol[0].data;
+
+              downloadBtn.disabled = false; 
+            } else {
+              decodedTextDiv.textContent = "QR code not found.";
+            }
+          })
+          .catch(error => {
+            console.error('Error decoding QR code:', error);
+            decodedTextDiv.textContent = "Error decoding QR code.";
+          });
+      } else {
+        alert("Please select a QR code image first.");
+      }
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      const textContent = decodedTextDiv.textContent;
+      
+      let filename = filenameInput.value.trim(); 
+
+      if (!filename) {
+        filename = "downloaded_config.conf"; 
+      }
+
+      if (!filename.endsWith(".conf")) {
+        filename += ".conf";
+      }
+
+      const blob = new Blob([textContent], { type: "application/x-config" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename; 
+
+      link.click(); 
+      URL.revokeObjectURL(url); 
+
+      qrInput.disabled = true;
+      decodeBtn.disabled = true;
+
+      downloadBtn.disabled = true;
+      startTimer(30); 
+    });
+
+    function startTimer(seconds) {
+      let remainingSeconds = seconds;
+      timerDiv.textContent = `Wait for ${remainingSeconds} seconds before downloading another file.`; 
+
+      downloadTimer = setInterval(() => {
+        remainingSeconds--;
+        timerDiv.textContent = `Wait for ${remainingSeconds} seconds before downloading another file.`;
+        saveTimerState(remainingSeconds); 
+
+        if (remainingSeconds <= 0) {
+          clearInterval(downloadTimer);
+          downloadBtn.disabled = false; 
+          timerDiv.textContent = ""; 
+          localStorage.removeItem('downloadTimer'); 
+
+          qrInput.disabled = false;
+          decodeBtn.disabled = false;
+        }
+      }, 1000); 
+    }
+  </script>
+</body>
+</html>
